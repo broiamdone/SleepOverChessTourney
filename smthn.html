@@ -43,7 +43,6 @@
     .btn-danger:hover:not(:disabled) { background: #fca5a5; color: #b91c1c; }
     
     .panel { background: var(--panel); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 24px; }
-    .sticky-panel { position: sticky; top: 24px; z-index: 5; }
     .panel-header { padding: 18px 24px; border-bottom: 1px solid var(--border); background: #ffffff; display: flex; justify-content: space-between; align-items: center; }
     .panel-header h2 { font-size: 1.2rem; font-weight: 700; margin: 0; color: var(--black); }
     .panel-body { padding: 24px; }
@@ -115,6 +114,19 @@
     .modal h3 { margin-bottom: 8px; font-weight: 700; font-size: 1.25rem; }
     .modal p { color: var(--muted); margin-bottom: 24px; font-size: 0.95rem; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 12px; }
+
+    /* Sticky Panel Class */
+    .sticky-panel {
+      position: sticky;
+      top: 30px; /* Matches the body padding */
+      max-height: calc(100vh - 60px); /* Keeps it entirely on-screen */
+      overflow-y: auto; /* Adds a scrollbar inside the panel if history gets too long */
+    }
+
+    /* Clean, unobtrusive scrollbar for the sticky panels */
+    .sticky-panel::-webkit-scrollbar { width: 6px; }
+    .sticky-panel::-webkit-scrollbar-track { background: transparent; }
+    .sticky-panel::-webkit-scrollbar-thumb { background-color: var(--border); border-radius: 10px; }
   </style>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 </head>
@@ -130,18 +142,21 @@
   </div>
 
   <div class="container">
-    <div class="panel">
-      <div class="panel-header"><h2>1. Setup</h2></div>
-      <div class="panel-body">
-        <div class="form-group">
-          <label>Tournament Name</label>
-          <input type="text" id="setupName" class="form-control" value="SleepOver Chess Tourney">
+    
+    <div class="sticky-panel">
+      <div class="panel">
+        <div class="panel-header"><h2>1. Setup</h2></div>
+        <div class="panel-body">
+          <div class="form-group">
+            <label>Tournament Name</label>
+            <input type="text" id="setupName" class="form-control" value="SleepOver Chess Tourney">
+          </div>
+          <div class="form-group">
+            <label>Number of Players</label>
+            <input type="number" id="setupCount" class="form-control" value="7" min="2" max="20">
+          </div>
+          <div id="setupPlayersList"></div>
         </div>
-        <div class="form-group">
-          <label>Number of Players</label>
-          <input type="number" id="setupCount" class="form-control" value="7" min="2" max="20">
-        </div>
-        <div id="setupPlayersList"></div>
       </div>
     </div>
 
@@ -155,8 +170,8 @@
       </div>
     </div>
 
-    <div>
-      <div class="panel sticky-panel">
+    <div class="sticky-panel">
+      <div class="panel">
         <div class="panel-header"><h2>Standings & Predictions</h2></div>
         <div class="panel-body" style="padding: 0;" id="standingsContainer">
           <div class="empty-state">Standings will appear once the tournament starts.</div>
@@ -173,6 +188,7 @@
         </div>
       </div>
     </div>
+
   </div>
 
   <div id="confirmModal" class="modal-overlay hidden">
@@ -507,25 +523,19 @@
     };
 
     // ── FLIP COLORS ───────────────────────────────────────────────────────────
-    // Swaps white/black for the given match and also mirrors the recorded
-    // result so the score stays consistent (a white win becomes a black win
-    // and vice-versa; draws are unaffected).
     window.flipColors = function(matchId) {
       const match = activeTournament.matches.find(m => m.id === matchId);
       if (!match) return;
 
-      // Swap the player assignments
       const tmp   = match.white;
       match.white = match.black;
       match.black = tmp;
 
-      // Mirror the result to keep it consistent with the new color assignments
       if (match.result === 'white') {
         match.result = 'black';
       } else if (match.result === 'black') {
         match.result = 'white';
       }
-      // 'draw' and null stay unchanged
 
       saveState();
       renderMatches();
