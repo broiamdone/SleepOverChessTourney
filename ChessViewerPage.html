@@ -41,7 +41,6 @@
     .conn-status.connected { display: none; }
     
     .panel { background: var(--panel); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 24px; }
-    .sticky-panel { position: sticky; top: 24px; z-index: 5; }
     .panel-header { padding: 18px 24px; border-bottom: 1px solid var(--border); background: #ffffff; display: flex; justify-content: space-between; align-items: center; }
     .panel-header h2 { font-size: 1.2rem; font-weight: 700; margin: 0; color: var(--black); }
     .panel-body { padding: 24px; }
@@ -91,6 +90,19 @@
     .history-date { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
 
     .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); font-weight: 500; font-style: italic; font-size: 0.9rem; }
+
+    /* Sticky Panel Class */
+    .sticky-panel {
+      position: sticky;
+      top: 30px; /* Matches the body padding */
+      max-height: calc(100vh - 60px); /* Keeps it entirely on-screen */
+      overflow-y: auto; /* Adds a scrollbar inside the panel if history gets too long */
+    }
+
+    /* Clean, unobtrusive scrollbar for the sticky panels */
+    .sticky-panel::-webkit-scrollbar { width: 6px; }
+    .sticky-panel::-webkit-scrollbar-track { background: transparent; }
+    .sticky-panel::-webkit-scrollbar-thumb { background-color: var(--border); border-radius: 10px; }
   </style>
 </head>
 <body>
@@ -102,10 +114,10 @@
     </div>
   </div>
 
-  <!-- Connection status banner — hidden when connected, visible when dropped -->
   <div class="conn-status" id="connStatus"></div>
 
   <div class="container">
+    
     <div class="panel">
       <div class="panel-header">
         <h2>Match Schedule</h2>
@@ -116,8 +128,8 @@
       </div>
     </div>
 
-    <div>
-      <div class="panel sticky-panel">
+    <div class="sticky-panel">
+      <div class="panel">
         <div class="panel-header"><h2>Standings & Predictions</h2></div>
         <div class="panel-body" style="padding: 0;" id="standingsContainer">
           <div class="empty-state">Standings will appear once a tournament begins.</div>
@@ -131,6 +143,7 @@
         </div>
       </div>
     </div>
+
   </div>
 
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
