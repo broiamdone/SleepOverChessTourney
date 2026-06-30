@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chess Round Robin - Live Standings & Predictions</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --panel: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --accent-green: #10b981;
+      --accent-green-dark: #059669;
+      --accent-blue: #0284c7;
+      --accent-red: #ef4444;
+      --black: #1e293b;
+      --radius: 12px;
+      --shadow: 0 4px 10px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background-color: var(--bg); color: var(--text); padding: 30px; line-height: 1.5; }
+    
+    .container { max-width: 1600px; margin: 0 auto; display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; align-items: start; }
+    @media (max-width: 992px) { .container { grid-template-columns: 1fr; } }
+
+    .header { max-width: 1600px; margin: 0 auto 24px auto; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 1.8rem; font-weight: 800; display: flex; align-items: center; gap: 12px; color: var(--black); }
+    
+    .live-indicator { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; font-weight: 700; color: var(--accent-green-dark); background: #e6f4ea; padding: 6px 12px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .live-dot { width: 8px; height: 8px; background-color: var(--accent-green); border-radius: 50%; animation: pulse 1.8s infinite; }
+    @keyframes pulse { 0% { transform: scale(0.95); opacity: 0.5; } 50% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(0.95); opacity: 0.5; } }
+
+    /* Connection status banner */
+    .conn-status { max-width: 1600px; margin: 0 auto 16px auto; padding: 10px 16px; border-radius: 8px; font-size: 0.82rem; font-weight: 600; display: none; }
+    .conn-status.disconnected { display: flex; align-items: center; gap: 8px; background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; }
+    .conn-status.reconnecting { display: flex; align-items: center; gap: 8px; background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
+    .conn-status.connected { display: none; }
+    
+    .panel { background: var(--panel); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 24px; }
+    .panel-header { padding: 18px 24px; border-bottom: 1px solid var(--border); background: #ffffff; display: flex; justify-content: space-between; align-items: center; }
+    .panel-header h2 { font-size: 1.2rem; font-weight: 700; margin: 0; color: var(--black); }
+    .panel-body { padding: 24px; }
+
+    .round-group { margin-bottom: 24px; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: #ffffff; }
+    .round-title { background: #f8fafc; padding: 12px 20px; font-weight: 700; font-size: 0.9rem; color: var(--black); border-bottom: 1px solid var(--border); }
+    .match { padding: 20px; display: grid; gap: 12px; border-bottom: 1px solid var(--border); background: #fff; position: relative; }
+    .match:last-child { border-bottom: none; }
+    .match.completed { border-left: 5px solid var(--accent-green); background-color: #fafdfb; }
+    
+    .match-players { display: flex; justify-content: center; align-items: center; font-weight: 700; font-size: 1.2rem; gap: 15px; text-align: center; }
+    .match-player-box { display: flex; flex-direction: column; min-width: 140px; }
+    .match-player-box span { font-size: 0.75rem; color: var(--muted); font-weight: 500; margin-top: 2px; }
+    .match-vs { color: var(--muted); font-size: 0.85rem; font-weight: 500; }
+    
+    .outcome-badge { display: block; text-align: center; margin: 4px auto 0 auto; font-size: 0.8rem; font-weight: 700; padding: 4px 14px; border-radius: 6px; width: fit-content; }
+    .outcome-badge.white { background: #1e293b; color: white; }
+    .outcome-badge.black { background: #0f172a; color: white; }
+    .outcome-badge.draw { background: #e2e8f0; color: var(--black); }
+
+    .match-prob-container { width: 100%; margin: 4px 0; }
+    .match-prob-bar { width: 100%; height: 14px; background: #e2e8f0; border-radius: 4px; overflow: hidden; display: flex; }
+    .prob-slice { height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.68rem; font-weight: bold; transition: width 0.3s ease; }
+    .prob-slice.white { background: #1e293b; }
+    .prob-slice.draw { background: #475569; }
+    .prob-slice.black { background: #0f172a; border-left: 1px solid #334155; }
+    
+    .match-prob-labels { display: flex; justify-content: space-between; font-size: 0.75rem; color: #1e293b; font-weight: 600; margin-top: 4px; }
+    .match-prob-labels span { flex: 1; text-align: center; }
+    .match-prob-labels span:first-child { text-align: left; }
+    .match-prob-labels span:last-child { text-align: right; }
+
+    .standing-item { display: flex; align-items: center; gap: 16px; padding: 18px 20px; border-bottom: 1px solid var(--border); transition: background 0.2s; }
+    .standing-item:last-child { border-bottom: none; }
+    .standing-rank { font-size: 1.1rem; font-weight: 800; width: 28px; color: var(--black); }
+    .standing-info { flex: 1; }
+    .standing-name { font-weight: 700; font-size: 1.05rem; color: var(--black); }
+    .standing-score { font-size: 1.25rem; font-weight: 800; color: var(--accent-green-dark); text-align: right; min-width: 60px; }
+    
+    .prediction-container { margin-top: 8px; }
+    .prediction-label { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+    .prediction-bar { width: 100%; height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; }
+    .prediction-fill { height: 100%; background: #0284c7; transition: width 0.4s ease; border-radius: 3px; }
+
+    .history-item { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .history-title { font-weight: 700; color: var(--black); }
+    .history-date { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
+
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--muted); font-weight: 500; font-style: italic; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1 id="tournamentTitle">♞ Chess Round Robin</h1>
+    <div class="live-indicator">
+      <div class="live-dot"></div> Live Tracker
+    </div>
+  </div>
+
+  <!-- Connection status banner — hidden when connected, visible when dropped -->
+  <div class="conn-status" id="connStatus"></div>
+
+  <div class="container">
+    <div class="panel">
+      <div class="panel-header">
+        <h2>Match Schedule</h2>
+        <span id="progressText" style="font-size: 0.85rem; color: var(--muted); font-weight: 700;">0/0 Completed</span>
+      </div>
+      <div class="panel-body" id="matchesContainer" style="padding: 12px;">
+        <div class="empty-state">Connecting to tournament room...</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="panel">
+        <div class="panel-header"><h2>Standings & Predictions</h2></div>
+        <div class="panel-body" style="padding: 0;" id="standingsContainer">
+          <div class="empty-state">Standings will appear once a tournament begins.</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-header"><h2>Tournament History Archive</h2></div>
+        <div class="panel-body" style="padding: 0;" id="historyContainer">
+          <div class="empty-state">No archived tournaments found.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+  <script>
+    // MUST MATCH THE EXACT ID YOU USED IN YOUR ADMIN PAGE!
+    const adminId = 'unique-sleepover-chess-2026';
+
+    let viewerPeer = null;
+    let currentTournamentState = null;  // just the tournament object (or null)
+    let historyState = [];              // history array from admin
+    let isConnected = false;
+    let retryCount = 0;
+    const MAX_RETRY_DELAY = 30000;
+
+    const els = {
+      tournamentTitle:    document.getElementById('tournamentTitle'),
+      matchesContainer:   document.getElementById('matchesContainer'),
+      standingsContainer: document.getElementById('standingsContainer'),
+      historyContainer:   document.getElementById('historyContainer'),
+      progressText:       document.getElementById('progressText'),
+      connStatus:         document.getElementById('connStatus')
+    };
+
+    // ── Connection status banner helpers ─────────────────────────────────────
+    function showStatus(type, message) {
+      els.connStatus.className = `conn-status ${type}`;
+      els.connStatus.textContent = message;
+    }
+
+    function hideStatus() {
+      els.connStatus.className = 'conn-status connected';
+      els.connStatus.textContent = '';
+    }
+
+    // ── Core init — creates a fresh Peer and connects to admin ───────────────
+    function initViewer() {
+      if (viewerPeer && !viewerPeer.destroyed) {
+        viewerPeer.destroy();
+      }
+
+      viewerPeer = new Peer();
+
+      viewerPeer.on('open', () => {
+        console.log('Viewer peer online. Connecting to admin...');
+        retryCount = 0;
+        connectToAdmin();
+      });
+
+      viewerPeer.on('error', (err) => {
+        console.warn('PeerJS error:', err);
+        scheduleReconnect();
+      });
+    }
+
+    // ── Opens a connection to the admin peer ─────────────────────────────────
+    function connectToAdmin() {
+      const conn = viewerPeer.connect(adminId);
+
+      const openTimeout = setTimeout(() => {
+        if (!isConnected) {
+          console.warn('Connection to admin timed out.');
+          conn.close();
+          scheduleReconnect();
+        }
+      }, 8000);
+
+      conn.on('open', () => {
+        clearTimeout(openTimeout);
+        isConnected = true;
+        hideStatus();
+        console.log('Connected to admin! Requesting current state...');
+
+        // Actively ask the admin for the current state right away,
+        // then retry every 2 s until we actually receive data
+        // (guards against the race where the send fires before we're ready)
+        let stateReceived = false;
+        const requestInterval = setInterval(() => {
+          if (stateReceived || !conn.open) { clearInterval(requestInterval); return; }
+          console.log('Requesting state from admin...');
+          conn.send('request-state');
+        }, 2000);
+
+        // Mark received inside the data handler below so the interval stops
+        conn._stateReceivedCallback = () => {
+          stateReceived = true;
+          clearInterval(requestInterval);
+        };
+
+        // Send the first request immediately
+        conn.send('request-state');
+      });
+
+      // Admin now sends { tournament, history } — unpack both fields
+      conn.on('data', (payload) => {
+        console.log('Received live update:', payload);
+
+        // Stop the re-request interval once we have real data
+        if (conn._stateReceivedCallback) conn._stateReceivedCallback();
+
+        // Support both the new { tournament, history } shape
+        // and any legacy plain-tournament object (safety fallback)
+        if (payload && typeof payload === 'object' && 'history' in payload) {
+          currentTournamentState = payload.tournament;   // may be null between tournaments
+          historyState           = payload.history || [];
+        } else {
+          // Legacy fallback: admin sent just the tournament object
+          currentTournamentState = payload;
+        }
+
+        renderViewerLayouts();
+      });
+
+      conn.on('close', () => {
+        clearTimeout(openTimeout);
+        isConnected = false;
+        console.log('Connection to admin lost.');
+        scheduleReconnect();
+      });
+
+      conn.on('error', (err) => {
+        clearTimeout(openTimeout);
+        isConnected = false;
+        console.warn('Connection error:', err);
+        scheduleReconnect();
+      });
+    }
+
+    // ── Exponential back-off retry (caps at 30 s) ────────────────────────────
+    function scheduleReconnect() {
+      if (isConnected) return;
+
+      const delay   = Math.min(2000 * Math.pow(1.5, retryCount), MAX_RETRY_DELAY);
+      const seconds = Math.round(delay / 1000);
+      retryCount++;
+
+      showStatus('reconnecting', `⏳ Connection lost — retrying in ${seconds}s… (attempt ${retryCount})`);
+      console.log(`Reconnecting in ${delay}ms (attempt ${retryCount})…`);
+
+      setTimeout(() => {
+        if (!isConnected) {
+          showStatus('reconnecting', `🔄 Reconnecting to tournament admin…`);
+          initViewer();
+        }
+      }, delay);
+    }
+
+    // ── Render ────────────────────────────────────────────────────────────────
+    function renderViewerLayouts() {
+      renderHistoryBlock();
+
+      if (!currentTournamentState) {
+        els.tournamentTitle.textContent = "♞ Chess Round Robin";
+        els.progressText.textContent    = "0/0 Completed";
+        els.matchesContainer.innerHTML  = `<div class="empty-state">No active tournament running. Checking for live updates...</div>`;
+        els.standingsContainer.innerHTML = `<div class="empty-state">Standings will appear once a tournament begins.</div>`;
+        return;
+      }
+
+      els.tournamentTitle.textContent = `♞ ${currentTournamentState.name}`;
+
+      const statsMap = processLiveEloAndPoints();
+      renderViewerMatches(statsMap);
+      renderViewerStandings(statsMap);
+    }
+
+    function processLiveEloAndPoints() {
+      let stats = {};
+      currentTournamentState.players.forEach(p => {
+        stats[p.id] = {
+          id: p.id, name: p.name, elo: p.baseElo,
+          points: 0, wins: 0, losses: 0, draws: 0, played: 0
+        };
+      });
+
+      currentTournamentState.matches.forEach(m => {
+        if (!m.result) return;
+        let wStats = stats[m.white];
+        let bStats = stats[m.black];
+
+        wStats.played++; bStats.played++;
+
+        const K         = 32;
+        const expectedW = 1 / (1 + Math.pow(10, (bStats.elo - wStats.elo) / 400));
+        const expectedB = 1 / (1 + Math.pow(10, (wStats.elo - bStats.elo) / 400));
+
+        let actualW = 0.5, actualB = 0.5;
+
+        if (m.result === 'white') {
+          wStats.points += 1; wStats.wins++;   bStats.losses++;
+          actualW = 1; actualB = 0;
+        } else if (m.result === 'black') {
+          bStats.points += 1; bStats.wins++;   wStats.losses++;
+          actualW = 0; actualB = 1;
+        } else if (m.result === 'draw') {
+          wStats.points += 0.5; wStats.draws++;
+          bStats.points += 0.5; bStats.draws++;
+        }
+
+        wStats.elo += K * (actualW - expectedW);
+        bStats.elo += K * (actualB - expectedB);
+      });
+      return stats;
+    }
+
+    function getExponentialPredictions(statsList) {
+      let predictions = {}, totalPower = 0, playerPowerScores = {};
+
+      statsList.forEach(s => {
+        const powerScore = Math.pow(4, s.points) * Math.pow(10, s.elo / 315);
+        playerPowerScores[s.id] = powerScore;
+        totalPower += powerScore;
+      });
+
+      statsList.forEach(s => {
+        if (totalPower === 0) {
+          predictions[s.id] = 100 / statsList.length;
+        } else {
+          let pct = (playerPowerScores[s.id] / totalPower) * 100;
+          if (pct > 99.9) pct = 100;
+          if (pct < 0.1 && s.points > 0) pct = 0.1;
+          predictions[s.id] = pct;
+        }
+      });
+      return predictions;
+    }
+
+    function renderViewerMatches(currentStatsMap) {
+      const matches   = currentTournamentState.matches;
+      const completed = matches.filter(m => m.result !== null).length;
+      els.progressText.textContent = `${completed}/${matches.length} Completed`;
+
+      const rounds = {};
+      matches.forEach(m => {
+        if (!rounds[m.round]) rounds[m.round] = [];
+        rounds[m.round].push(m);
+      });
+
+      let html = '';
+      for (const [roundNum, roundMatches] of Object.entries(rounds)) {
+        html += `<div class="round-group"><div class="round-title">Round ${roundNum}</div>`;
+
+        roundMatches.forEach(m => {
+          const w      = currentTournamentState.players.find(p => p.id === m.white);
+          const b      = currentTournamentState.players.find(p => p.id === m.black);
+          const isDone = m.result !== null;
+
+          const currentWhiteElo = Math.round(currentStatsMap[m.white].elo);
+          const currentBlackElo = Math.round(currentStatsMap[m.black].elo);
+
+          const delta     = currentWhiteElo - currentBlackElo;
+          const expectedW = 1 / (1 + Math.pow(10, -delta / 400));
+
+          let drawProb = 0.26 - Math.abs(delta) / 2500;
+          if (drawProb < 0.05) drawProb = 0.05;
+          if (drawProb > 0.25) drawProb = 0.25;
+
+          let whiteWinProb = expectedW - (0.5 * drawProb);
+          let blackWinProb = 1 - expectedW - (0.5 * drawProb);
+
+          if (whiteWinProb < 0.02) { whiteWinProb = 0.02; blackWinProb = 1 - whiteWinProb - drawProb; }
+          if (blackWinProb < 0.02) { blackWinProb = 0.02; whiteWinProb = 1 - blackWinProb - drawProb; }
+
+          const wPct = (whiteWinProb * 100).toFixed(0);
+          const dPct = (drawProb * 100).toFixed(0);
+          const bPct = (blackWinProb * 100).toFixed(0);
+
+          let actionDisplayHtml = '';
+          if (isDone) {
+            let badgeLabel = m.result === 'white' ? `${w.name} Won`
+                           : m.result === 'black' ? `${b.name} Won`
+                           : 'Match Drawn';
+            actionDisplayHtml = `<div class="outcome-badge ${m.result}">🏆 ${badgeLabel}</div>`;
+          } else {
+            actionDisplayHtml = `
+              <div class="match-prob-container">
+                <div class="match-prob-bar">
+                  <div class="prob-slice white" style="width: ${wPct}%">${wPct}%</div>
+                  <div class="prob-slice draw"  style="width: ${dPct}%">${dPct}%</div>
+                  <div class="prob-slice black" style="width: ${bPct}%">${bPct}%</div>
+                </div>
+                <div class="match-prob-labels">
+                  <span>${w.name} ${wPct}%</span>
+                  <span>Draw ${dPct}%</span>
+                  <span>${bPct}% ${b.name}</span>
+                </div>
+              </div>
+            `;
+          }
+
+          html += `
+            <div class="match ${isDone ? 'completed' : ''}">
+              <div class="match-players">
+                <div class="match-player-box" style="text-align: right;">
+                  <div>${w.name}</div><span>White • ${currentWhiteElo}</span>
+                </div>
+                <div class="match-vs">vs</div>
+                <div class="match-player-box" style="text-align: left;">
+                  <div>${b.name}</div><span>Black • ${currentBlackElo}</span>
+                </div>
+              </div>
+              ${actionDisplayHtml}
+            </div>
+          `;
+        });
+        html += `</div>`;
+      }
+      els.matchesContainer.innerHTML = html;
+    }
+
+    function renderViewerStandings(statsMap) {
+      let statsList = Object.values(statsMap);
+      const predictions = getExponentialPredictions(statsList);
+
+      statsList.sort((a, b) => {
+        if (b.points !== a.points) return b.points - a.points;
+        if (predictions[b.id] !== predictions[a.id]) return predictions[b.id] - predictions[a.id];
+        return b.elo - a.elo;
+      });
+
+      let html = '';
+      statsList.forEach((s, index) => {
+        const winChance = predictions[s.id];
+        html += `
+          <div class="standing-item">
+            <div class="standing-rank">#${index + 1}</div>
+            <div class="standing-info">
+              <div class="standing-name">${s.name}</div>
+              <div style="font-size: 0.78rem; color: var(--muted); margin-bottom: 4px; font-weight: 500;">
+                ${s.wins}W • ${s.draws}D • ${s.losses}L | Live Elo: ${Math.round(s.elo)}
+              </div>
+              <div class="prediction-container">
+                <div class="prediction-label">
+                  <span>Tournament Win Chance</span>
+                  <span>${winChance.toFixed(1)}%</span>
+                </div>
+                <div class="prediction-bar">
+                  <div class="prediction-fill" style="width: ${winChance}%"></div>
+                </div>
+              </div>
+            </div>
+            <div class="standing-score">${s.points} pts</div>
+          </div>
+        `;
+      });
+      els.standingsContainer.innerHTML = html;
+    }
+
+    function renderHistoryBlock() {
+      if (!historyState || historyState.length === 0) {
+        els.historyContainer.innerHTML = '<div class="empty-state">No past records cataloged.</div>';
+        return;
+      }
+
+      let html = '';
+      historyState.forEach(t => {
+        const date = new Date(t.endTime).toLocaleDateString();
+        html += `
+          <div class="history-item">
+            <div>
+              <div class="history-title">${t.name}</div>
+              <div class="history-date">${date} • ${t.players.length} Players</div>
+            </div>
+            <div style="text-align: right; font-size: 0.85rem;">
+              <span style="color: var(--muted); font-size:0.75rem; font-weight:600; text-transform:uppercase;">Champion</span><br>
+              <strong>🏆 ${t.winner}</strong>
+            </div>
+          </div>
+        `;
+      });
+      els.historyContainer.innerHTML = html;
+    }
+
+    // Kick it off
+    initViewer();
+  </script>
+</body>
+</html>
