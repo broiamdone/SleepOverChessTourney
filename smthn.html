@@ -43,6 +43,7 @@
     .btn-danger:hover:not(:disabled) { background: #fca5a5; color: #b91c1c; }
     
     .panel { background: var(--panel); border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 24px; }
+    .sticky-panel { position: sticky; top: 24px; z-index: 5; }
     .panel-header { padding: 18px 24px; border-bottom: 1px solid var(--border); background: #ffffff; display: flex; justify-content: space-between; align-items: center; }
     .panel-header h2 { font-size: 1.2rem; font-weight: 700; margin: 0; color: var(--black); }
     .panel-body { padding: 24px; }
@@ -155,7 +156,7 @@
     </div>
 
     <div>
-      <div class="panel">
+      <div class="panel sticky-panel">
         <div class="panel-header"><h2>Standings & Predictions</h2></div>
         <div class="panel-body" style="padding: 0;" id="standingsContainer">
           <div class="empty-state">Standings will appear once the tournament starts.</div>
