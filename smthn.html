@@ -427,11 +427,42 @@
       els.setupCount.value    = activeTournament.players.length;
       els.btnStart.style.display = 'none';
       els.btnEnd.style.display   = 'inline-block';
-      els.setupPlayersList.innerHTML = `<div class="locked-text">${activeTournament.players.length} Players Locked. Ongoing Tournament.</div>`;
+
+      // Render the players as editable inputs instead of locking them
+      let html = '';
+      activeTournament.players.forEach((p, i) => {
+        html += `
+          <div class="player-row">
+            <span class="seed">${i + 1}</span>
+            <input type="text" class="form-control player-name" value="${p.name}" onchange="updatePlayerInfo('${p.id}', 'name', this.value)">
+            <input type="number" class="form-control player-elo" value="${p.baseElo}" style="width: 90px; text-align: center;" onchange="updatePlayerInfo('${p.id}', 'baseElo', this.value)">
+          </div>
+        `;
+      });
+      els.setupPlayersList.innerHTML = html;
 
       renderMatches();
       renderStandings();
     }
+
+    // New Function to handle live updates to player info
+    window.updatePlayerInfo = function(playerId, field, value) {
+      if (!activeTournament) return;
+      
+      const player = activeTournament.players.find(p => p.id === playerId);
+      
+      if (player) {
+        if (field === 'baseElo') {
+          player.baseElo = parseInt(value) || 1200; 
+        } else {
+          player.name = value || `Player`; 
+        }
+        
+        saveState();
+        renderMatches();
+        renderStandings();
+      }
+    };
 
     function renderMatches() {
       const matches   = activeTournament.matches;
